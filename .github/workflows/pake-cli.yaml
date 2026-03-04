@@ -1,68 +1,90 @@
-name: Build App With Pake CLI
-
+name: HearSilence Ultimate Builder
 env:
   NODE_VERSION: "22"
-  PNPM_VERSION: "10.26.2"
-  
+
 on:
   workflow_dispatch:
     inputs:
       url:
-        description: "网站地址"
+        description: "网站地址 (URL)"
         required: true
         default: "https://tingjianjijing.com"
       name:
-        description: "应用名称"
+        description: "应用名称 (Name)"
         required: true
         default: "HearSilence"
-      internal_regex:
-        description: "内部正则(不带引号)"
+      app_version:
+        description: "版本号 (Version)"
+        default: "1.2.0"
+      icon:
+        description: "图标地址 (支持 .ico/.png/.jpg)"
+        default: "https://cdn-icons-png.flaticon.com"
+      internal_url_regex:
+        description: "内部链接正则 (支持多域名)"
         default: ".*tingjianjijing.*"
       force_internal:
-        description: "全内部导航"
+        description: "所有链接均在内部打开 (Force Navigation)"
         type: boolean
         default: true
-      show_tray:
-        description: "显示托盘"
+      show_system_tray:
+        description: "启用系统托盘 (System Tray)"
         type: boolean
         default: true
+      hide_on_close:
+        description: "点击关闭隐藏至托盘 (Hide on Close)"
+        type: boolean
+        default: true
+      activation_shortcut:
+        description: "唤起快捷键 (如 Control+Shift+S)"
+        default: "Control+Shift+S"
 
 jobs:
   build:
+    name: Build for Windows
     runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Build
+      - name: Install Pake CLI
+        run: npm install -g pake-cli
+
+      - name: Build Windows App
         shell: pwsh
         run: |
-          npm install -g pake-cli
           $args = "${{ inputs.url }}", "--name", "${{ inputs.name }}"
-          $args += "--app-version", "1.2.0"
+          $args += "--app-version", "${{ inputs.app_version }}"
           $args += "--targets", "exe,7z"
-          $args += "--internal-url-regex", "${{ inputs.internal_regex }}"
-          $args += "--activation-shortcut", "Control+Shift+S"
-          $args += "--hide-on-close"
+          $args += "--activation-shortcut", "${{ inputs.activation_shortcut }}"
+          $args += "--internal-url-regex", '${{ inputs.internal_url_regex }}'
           
           if ("${{ inputs.force_internal }}" -eq "true") { $args += "--force-internal-navigation" }
-          if ("${{ inputs.show_tray }}" -eq "true") { $args += "--show-system-tray" }
+          if ("${{ inputs.show_system_tray }}" -eq "true") { $args += "--show-system-tray" }
+          if ("${{ inputs.hide_on_close }}" -eq "true") { $args += "--hide-on-close" }
+          
+          if ("${{ inputs.icon }}" -ne "") {
+              $args += "--icon", "${{ inputs.icon }}"
+              if ("${{ inputs.show_system_tray }}" -eq "true") {
+                  $args += "--system-tray-icon", "${{ inputs.icon }}"
+              }
+          }
           
           pake $args
 
-      - name: Upload
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: HearSilence-Windows
+          name: ${{ inputs.name }}-Windows-Final
           path: |
             *.exe
             *.msi
             *.7z
+          retention-days: 7
