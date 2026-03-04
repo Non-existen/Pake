@@ -1,6 +1,8 @@
-name: HearSilence Ultimate Builder
+name: Build App With Pake CLI
+
 env:
   NODE_VERSION: "22"
+  PNPM_VERSION: "10.26.2"
 
 on:
   workflow_dispatch:
