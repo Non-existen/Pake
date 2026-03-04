@@ -17,13 +17,13 @@ on:
         description: "版本号 (Version)"
         default: "1.2.0"
       icon:
-        description: "图标地址 (支持 .ico/.png/.jpg)"
+        description: "图标地址 (Direct URL)"
         default: "https://cdn-icons-png.flaticon.com"
       internal_url_regex:
-        description: "内部链接正则 (支持多域名)"
-        default: ".*tingjianjijing.*"
+        description: "内部链接正则"
+        default: ".*(tingjianjijing\.com|jijing\.sbs).*"
       force_internal:
-        description: "所有链接均在内部打开 (Force Navigation)"
+        description: "全内部导航 (Force Navigation)"
         type: boolean
         default: true
       show_system_tray:
@@ -35,7 +35,7 @@ on:
         type: boolean
         default: true
       activation_shortcut:
-        description: "唤起快捷键 (如 Control+Shift+S)"
+        description: "唤起快捷键 (Shortcut)"
         default: "Control+Shift+S"
 
 jobs:
@@ -60,31 +60,41 @@ jobs:
       - name: Build Windows App
         shell: pwsh
         run: |
-          $args = "${{ inputs.url }}", "--name", "${{ inputs.name }}"
-          $args += "--app-version", "${{ inputs.app_version }}"
-          $args += "--targets", "exe,7z"
-          $args += "--activation-shortcut", "${{ inputs.activation_shortcut }}"
-          $args += "--internal-url-regex", '${{ inputs.internal_url_regex }}'
+          # 1. 初始化参数数组
+          $pakeArgs = @("${{ inputs.url }}", "--name", "${{ inputs.name }}")
           
-          if ("${{ inputs.force_internal }}" -eq "true") { $args += "--force-internal-navigation" }
-          if ("${{ inputs.show_system_tray }}" -eq "true") { $args += "--show-system-tray" }
-          if ("${{ inputs.hide_on_close }}" -eq "true") { $args += "--hide-on-close" }
+          # 2. 注入所有 Inputs 选项
+          $pakeArgs += "--app-version", "${{ inputs.app_version }}"
+          $pakeArgs += "--targets", "exe,7z"
+          $pakeArgs += "--activation-shortcut", "${{ inputs.activation_shortcut }}"
+          $pakeArgs += "--internal-url-regex", '${{ inputs.internal_url_regex }}'
+          
+          if ("${{ inputs.force_internal }}" -eq "true") { $pakeArgs += "--force-internal-navigation" }
+          if ("${{ inputs.show_system_tray }}" -eq "true") { $pakeArgs += "--show-system-tray" }
+          if ("${{ inputs.hide_on_close }}" -eq "true") { $pakeArgs += "--hide-on-close" }
           
           if ("${{ inputs.icon }}" -ne "") {
-              $args += "--icon", "${{ inputs.icon }}"
+              $pakeArgs += "--icon", "${{ inputs.icon }}"
               if ("${{ inputs.show_system_tray }}" -eq "true") {
-                  $args += "--system-tray-icon", "${{ inputs.icon }}"
+                  $pakeArgs += "--system-tray-icon", "${{ inputs.icon }}"
               }
           }
+
+          # 3. 执行打包
+          Write-Host "Executing: pake $($pakeArgs -join ' ')"
+          pake @pakeArgs
           
-          pake $args
+          # 4. 打印目录结构以便调试
+          Write-Host "--- Post-build directory check ---"
+          Get-ChildItem -Recurse -Include *.exe, *.msi, *.7z | Select-Object FullName
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.name }}-Windows-Final
+          # 使用递归通配符，确保能抓到任何子目录下的安装包
           path: |
-            *.exe
-            *.msi
-            *.7z
+             **/*.exe
+             **/*.msi
+             **/*.7z
           retention-days: 7
