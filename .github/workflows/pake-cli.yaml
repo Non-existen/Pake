@@ -23,7 +23,7 @@ on:
         default: "https://cdn-icons-png.flaticon.com"
       internal_url_regex:
         description: "内部链接正则"
-        default: ".*(tingjianjijing\.com|jijing\.sbs).*"
+        default: ".*tingjianjijing.*"
       force_internal:
         description: "全内部导航 (Force Navigation)"
         type: boolean
